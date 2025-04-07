@@ -5,7 +5,7 @@ import json
 
 image_root_path = "/datasets/imagenet21k_resized"
 maks_root_path = "/datasets/imagenet21k_resized/OOD_imagenet_seg_pseudomasks_clipseg"
-train_iid_txt_path = "/datasets/imagenet21k_resized/lists/classification/test_hard_ood.txt" #"/mnt/gpu3_datasets/lists/segmentation/train_iid.txt" # "/mnt/gpu3_datasets/lists/segmentation/test_hard_ood.txt" # "/mnt/gpu3_datasets/lists/segmentation/test_easy_ood.txt"
+train_iid_txt_path = "/datasets/imagenet21k_resized/lists/segmentation/test_hard_ood.txt" #"/mnt/gpu3_datasets/lists/segmentation/train_iid.txt" # "/mnt/gpu3_datasets/lists/segmentation/test_hard_ood.txt" # "/mnt/gpu3_datasets/lists/segmentation/test_easy_ood.txt"
 
 file = open(train_iid_txt_path,'r')
 label_to_name = dict()
@@ -27,7 +27,6 @@ selected_label = OrderedDict({
 # 53: 'truck',
 # 54: 'turtle'
 })
-
 
 all_labels = set()
 final_data = []
@@ -74,7 +73,7 @@ while True:
     data = dict()
     data["image_path"] = image_path
 
-    ''' semantic '''
+    ''' segmetation '''
     data["mask_path"] = mask_path
 
     ''' classification'''
@@ -89,9 +88,17 @@ while True:
 # with open('jsons/imagenet_sood_test_easy_ood_entire_classification.json', 'a') as f:
 #     json.dump(final_data, f)
 
-with open('jsons/imagenet_sood_test_hard_ood_entire_classification.json', 'a') as f:
-    json.dump(final_data, f)
+# with open('jsons/imagenet_sood_test_hard_ood_entire_classification.json', 'a') as f:
+#     json.dump(final_data, f)
 
+# with open('jsons/imagenet_sood_train_entire_segmentation.json', 'a') as f:
+#         json.dump(final_data, f)
+
+# with open('jsons/imagenet_sood_test_easy_ood_entire_segmentation.json', 'a') as f:
+#     json.dump(final_data, f)
+
+with open('jsons/imagenet_sood_test_hard_ood_entire_segmentation.json', 'a') as f:
+    json.dump(final_data, f)
 
 print("all label: ", all_labels)
 print("label_to_name:", label_to_name)
