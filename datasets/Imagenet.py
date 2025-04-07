@@ -17,7 +17,7 @@ import json
 
 class Imagenet_datasets(Dataset):
     def __init__(self, is_train=True,  target_img_w=224, target_img_h=224,):
-        self.root_path = "/home/hojunson/Desktop/Datasets"
+        self.root_path = "/datasets"
         self.root_mask_path = self.root_path
         self.root_json_path = "/home/hojunson/PycharmProjects/Pooling_research/"
 
