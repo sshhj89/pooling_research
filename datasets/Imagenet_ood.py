@@ -15,7 +15,17 @@ import meta_classes_dict
 import json
 
 class Imagenet_datasets(Dataset):
-    def __init__(self, is_train=True, is_easy = True, load_mask=False, target_img_w=224, target_img_h=224):
+    def __init__(self, is_train=True, is_easy = True, load_mask=False, target_img_w=224, target_img_h=224, use_segmentation=False):
+        '''
+
+        :param is_train: load train dataset
+        :param is_easy: load easy test set. if is_train == False and is_easy == False then hard test set will be loaded
+        :param load_mask: load masks for training dataset
+        :param target_img_w: input image size width
+        :param target_img_h: input image size height
+        :param use_segmentation: for test dataset, you can use segmentation test set which has masks.
+        '''
+
         self.root_path = "/datasets/imagenet21k_resized"
         self.root_json_path = "/home/hojunson/PycharmProjects/pooling_research/"
 
@@ -24,8 +34,9 @@ class Imagenet_datasets(Dataset):
             is_easy = False
 
         self.load_mask = load_mask
+        self.use_segmentation =use_segmentation
 
-        if is_train == False:
+        if self.is_train == False:
             self.is_train = False
             self.load_mask = False
 
@@ -34,14 +45,24 @@ class Imagenet_datasets(Dataset):
                       'r') as file:
                 self.data = json.load(file)
         else:
-            if is_easy == True:
+            if is_easy == True and self.use_segmentation == False:
                 with open(os.path.join(self.root_json_path,
                                        "jsons/imagenet_sood_test_easy_ood_entire_classification.json"), 'r') as file:
                     self.data = json.load(file)
-            else:
+            elif is_easy == True and self.use_segmentation == True:
+                with open(os.path.join(self.root_json_path,
+                                       "jsons/imagenet_sood_test_easy_ood_entire_segmentation.json"), 'r') as file:
+                    self.data = json.load(file)
+            elif is_easy == False and self.use_segmentation == False:
                 with open(os.path.join(self.root_json_path,
                                        "jsons/imagenet_sood_test_hard_ood_entire_classification.json"), 'r') as file:
                     self.data = json.load(file)
+            elif is_easy == False and self.use_segmentation == True:
+                with open(os.path.join(self.root_json_path,
+                                       "jsons/imagenet_sood_test_hard_ood_entire_segmentation.json"), 'r') as file:
+                    self.data = json.load(file)
+            else:
+                print("no datasets load")
 
         self.target_img_w = target_img_w
         self.target_img_h = target_img_h
@@ -102,6 +123,21 @@ class Imagenet_datasets(Dataset):
                 aug_input = T.AugInput(image, sem_seg=None)
                 transforms = self.augmentations(aug_input)
                 image, mask_img = aug_input.image, aug_input.sem_seg
+        elif self.use_segmentation == True:
+            if mask_path is not None:
+                # print(os.path.join(self.root_path, mask_path))
+                temp_mask = cv2.imread(os.path.join(self.root_path, mask_path), cv2.IMREAD_GRAYSCALE)
+                temp_mask[temp_mask>0] = 1
+                mask_img = np.expand_dims(temp_mask, axis=-1) #* 2
+
+                aug_input = T.AugInput(image, sem_seg=mask_img)
+                transforms = self.augmentations(aug_input)
+                image, mask_img = aug_input.image, aug_input.sem_seg
+            else:
+                aug_input = T.AugInput(image, sem_seg=None)
+                transforms = self.augmentations(aug_input)
+                image, mask_img = aug_input.image, aug_input.sem_seg
+
         else:
             aug_input = T.AugInput(image, sem_seg=None)
             transforms = self.augmentations(aug_input)
@@ -118,13 +154,23 @@ class Imagenet_datasets(Dataset):
         if self.is_train == True:
             temp["label"] = meta_classes_dict.sood_segmentation_id_to_label[label]
         else:
-            temp["label"] = meta_classes_dict.sood_classification_id_to_label[label]
+            if self.use_segmentation == False:
+                temp["label"] = meta_classes_dict.sood_classification_id_to_label[label]
+            else:
+                temp["label"] = meta_classes_dict.sood_segmentation_id_to_label[label]
 
         if self.load_mask==True:
             if mask_img is not None:
                 temp["mask_img"] = torch.as_tensor(mask_img.copy().transpose(2, 0, 1))
             else:
                 temp["mask_img"] = torch.as_tensor(np.ones((1, self.target_img_h, self.target_img_w), dtype=np.uint8))
+
+        if self.use_segmentation == True:
+            if mask_img is not None:
+                temp["mask_img"] = torch.as_tensor(mask_img.copy().transpose(2, 0, 1))
+            else:
+                temp["mask_img"] = torch.as_tensor(
+                    np.ones((1, self.target_img_h, self.target_img_w), dtype=np.uint8))
 
         return temp
 
@@ -178,7 +224,8 @@ class Imagenet_datasets(Dataset):
 if __name__ == "__main__":
     batch_size = 4
     load_mask = False
-    training_data = Imagenet_datasets(is_train=False, is_easy=False, load_mask=load_mask, target_img_w=224, target_img_h=224)
+    use_segmentation = True
+    training_data = Imagenet_datasets(is_train=False, is_easy=False, load_mask=load_mask, target_img_w=224, target_img_h=224, use_segmentation=use_segmentation)
     train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=1)
 
     def imshow(img):
@@ -199,12 +246,14 @@ if __name__ == "__main__":
         images = images * np.expand_dims(np.expand_dims(np.expand_dims(torch.as_tensor(np.array([0.229, 0.224, 0.225])), axis=0), axis=-1), axis=-1)
         images = images + np.expand_dims(np.expand_dims(np.expand_dims(torch.as_tensor(np.array([0.485, 0.456, 0.406])), axis=0), axis=-1), axis=-1)
 
-        if load_mask == True:
+        if use_segmentation == True:
             mask_images = temp["mask_img"]
-
-        if load_mask == True:
-            mask_images = temp["mask_img"]
-            # imshow(torchvision.utils.make_grid(images*mask_images))
-        else:
+            imshow(torchvision.utils.make_grid(images * mask_images))
+        elif use_segmentation == False:
             # imshow(torchvision.utils.make_grid(images))
-            pass
+            if load_mask == True:
+                mask_images = temp["mask_img"]
+                imshow(torchvision.utils.make_grid(images * mask_images))
+            else:
+                imshow(torchvision.utils.make_grid(images))
+                pass
